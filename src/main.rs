@@ -39,6 +39,18 @@ impl Compressor {
         }
     }
 
+    fn format_time(time: SystemTime) -> String {
+        time.duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| {
+                let secs = d.as_secs();
+                let naive = chrono::NaiveDateTime::from_timestamp_opt(secs as i64, 0)
+                    .unwrap_or_default();
+                naive.format("%Y-%m-%d %H:%M:%S").to_string()
+            })
+            .unwrap_or_else(|_| String::from("Unknown"))
+    }
+
+
     fn compress_file(reader: &mut dyn Read, writer: &mut dyn Write) -> io::Result<u64> {
         let mut current_byte = None;
         let mut count: i32 = 0;
