@@ -1,6 +1,9 @@
 [package]
-name = "compressor"
+name = "file-and-folder-compressor-program"
 version = "0.1.0"
 edition = "2021"
+authors = ["miky rola mikyrola8@gmail.com"]
+description = "A file and folder program"
 
 [dependencies]
+chrono = "0.4"

@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+// use std::collections::HashMap;
 use std::fs::{self, File, DirEntry};
 use std::io::{self, Read, Write, BufReader, BufWriter, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 #[derive(Debug)]
 struct FileEntry {
@@ -13,6 +14,15 @@ struct FileEntry {
 struct Compressor {
     input_path: String,
     output_path: String,
+}
+
+#[derive(Debug)]
+struct FileInfo {
+    path: PathBuf,
+    name: String,
+    size: u64,
+    last_modified: String,
+    is_dir: bool,
 }
 
 impl Compressor {
@@ -50,6 +60,36 @@ impl Compressor {
             .unwrap_or_else(|_| String::from("Unknown"))
     }
 
+    fn get_files_info(path: &str) -> io::Result<Vec<FileInfo>> {
+        let path = Path::new(path);
+        let mut files = Vec::new();
+
+        if path.is_file() {
+            let metadata = fs::metadata(path)?;
+            files.push(FileInfo {
+                name: path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+                path: path.to_path_buf(),
+                size: metadata.len(),
+                last_modified: Self::format_time(metadata.modified()?),
+                is_dir: false,
+            });
+        } else if path.is_dir() {
+            for entry in fs::read_dir(path)? {
+                let entry = entry?;
+                let metadata = entry.metadata()?;
+                files.push(FileInfo {
+                    name: entry.file_name().to_string_lossy().into_owned(),
+                    path: entry.path(),
+                    size: if metadata.is_file() { metadata.len() } else { 0 },
+                    last_modified: Self::format_time(metadata.modified()?),
+                    is_dir: metadata.is_dir(),
+                });
+            }
+        }
+
+        Ok(files)
+    }
+
 
     fn compress_file(reader: &mut dyn Read, writer: &mut dyn Write) -> io::Result<u64> {
         let mut current_byte = None;
@@ -67,7 +107,6 @@ impl Compressor {
                     count += 1;
                 }
                 Some(byte) => {
-                    // Write the current run
                     writer.write_all(&[byte])?;
                     writer.write_all(&count.to_le_bytes())?;
                     bytes_written += 5; // 1 byte for symbol + 4 bytes for count
@@ -136,7 +175,6 @@ impl Compressor {
     }
 
     fn compress(&self) -> io::Result<()> {
-        // Handle existing file
         match Self::handle_existing_file(&self.output_path) {
             Ok(true) => {}, // Replace existing file
             Ok(false) => {}, // New file
@@ -190,7 +228,6 @@ impl Compressor {
             current_offset += compressed_size;
         }
 
-        // Write file entries at the beginning
         writer.seek(SeekFrom::Start(8))?; // Skip file count
         for entry in file_entries {
             // Write path
@@ -246,7 +283,6 @@ impl Compressor {
         let output_dir = Path::new(&self.output_path);
         fs::create_dir_all(output_dir)?;
 
-        // Decompress each file
         for file_entry in files {
             let output_path = output_dir.join(&file_entry.path);
             println!("Extracting: {}", output_path.display());
@@ -281,6 +317,33 @@ impl Compressor {
         }
 
         Ok(())
+    }
+
+    fn display_files(files: &[FileInfo]) {
+        println!("\nAvailable files/folders:");
+        println!("{:<5} {:<30} {:<15} {:<20} {}", "No.", "Name", "Size", "Last Modified", "Type");
+        println!("{:-<80}", "");
+
+        for (i, file) in files.iter().enumerate() {
+            let size_str = if file.is_dir {
+                "-".to_string()
+            } else {
+                Self::format_size(file.size)
+            };
+            println!(
+                "{:<5} {:<30} {:<15} {:<20} {}",
+                i + 1,
+                if file.name.len() > 30 {
+                    format!("{}...", &file.name[..27])
+                } else {
+                    file.name.clone()
+                },
+                size_str,
+                file.last_modified,
+                if file.is_dir { "Directory" } else { "File" }
+            );
+        }
+        
     }
 }
 
@@ -320,24 +383,86 @@ fn run_shell() -> io::Result<()> {
                 print_help();
             }
             "compress" => {
-                if args.len() != 3 {
-                    println!("Usage: compress <source_path> <output_path>");
+                if args.len() != 2 {
+                    println!("Usage: compress <path>");
                     continue;
                 }
+                
+                // Get and display files
+                let files = match Compressor::get_files_info(args[1]) {
+                    Ok(files) => files,
+                    Err(e) => {
+                        println!("Error reading directory: {}", e);
+                        continue;
+                    }
+                };
+
+                if files.is_empty() {
+                    println!("No files found in the specified path.");
+                    continue;
+                }
+
+                Compressor::display_files(&files);
+
+                // Get user selection
+                println!("\nEnter the number of the file/folder to compress (1-{}):", files.len());
+                let mut selection = String::new();
+                io::stdin().read_line(&mut selection)?;
+                
+                let index = match selection.trim().parse::<usize>() {
+                    Ok(n) if n > 0 && n <= files.len() => n - 1,
+                    _ => {
+                        println!("Invalid selection.");
+                        continue;
+                    }
+                };
+
+                let selected = &files[index];
+                
+                // Generate output filename
+                let default_output = format!("{}.compressed", selected.name);
+                println!("\nChoose output option:");
+                println!("1. Save as {}", default_output);
+                println!("2. Specify different name");
+                
+                let mut choice = String::new();
+                io::stdin().read_line(&mut choice)?;
+                
+                let output_path = match choice.trim() {
+                    "1" => default_output,
+                    "2" => {
+                        println!("Enter output filename:");
+                        let mut custom_name = String::new();
+                        io::stdin().read_line(&mut custom_name)?;
+                        custom_name.trim().to_string()
+                    }
+                    _ => {
+                        println!("Invalid choice. Using default name.");
+                        default_output
+                    }
+                };
+
                 println!("Starting compression...");
-                let compressor = Compressor::new(args[1].to_string(), args[2].to_string());
+                let compressor = Compressor::new(selected.path.to_string_lossy().to_string(), output_path);
                 match compressor.compress() {
                     Ok(_) => println!("Compression completed successfully!"),
                     Err(e) => println!("Error during compression: {}", e),
                 }
             }
             "decompress" => {
-                if args.len() != 3 {
-                    println!("Usage: decompress <archive_path> <output_dir>");
+                if args.len() != 2 {
+                    println!("Usage: decompress <archive_path>");
                     continue;
                 }
+
+                println!("Enter extraction directory (press Enter for current directory):");
+                let mut extract_dir = String::new();
+                io::stdin().read_line(&mut extract_dir)?;
+                let extract_dir = extract_dir.trim();
+                let output_dir = if extract_dir.is_empty() { "." } else { extract_dir };
+
                 println!("Starting decompression...");
-                let compressor = Compressor::new(args[1].to_string(), args[2].to_string());
+                let compressor = Compressor::new(args[1].to_string(), output_dir.to_string());
                 match compressor.decompress() {
                     Ok(_) => println!("Decompression completed successfully!"),
                     Err(e) => println!("Error during decompression: {}", e),
