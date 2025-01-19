@@ -103,7 +103,6 @@ impl Compressor {
         // Create a temporary buffer for binary data
         let mut binary_buffer = Vec::new();
         
-        // Write number of files
         binary_buffer.extend_from_slice(&(files.len() as u64).to_le_bytes());
         
         let header_pos = (files.len() as u64) * 
@@ -114,7 +113,6 @@ impl Compressor {
         let mut file_entries = Vec::new();
         let mut compressed_data = Vec::new();
 
-        // First pass: compress files and collect metadata
         for file_path in &files {
             println!("Compressing: {}", file_path.display());
             let relative_path = file_path.strip_prefix(input_path)
@@ -150,7 +148,7 @@ impl Compressor {
         binary_buffer.extend_from_slice(&compressed_data);
 
         // Convert to Base64 and write to file
-        writeln!(writer, "RUSTCOMP")?;  // File signature
+        writeln!(writer, "RUSTCOMPRESSOR")?;  
         writeln!(writer, "{}", BASE64.encode(&binary_buffer))?;
         
         writer.flush()?;
