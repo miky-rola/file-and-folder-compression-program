@@ -20,7 +20,7 @@ pub fn format_time(time: SystemTime) -> String {
     time.duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| {
             let secs = d.as_secs();
-            let naive = chrono::NaiveDateTime::from_timestamp_opt(secs as i64, 0)
+            let naive = chrono::DateTime::from_timestamp(secs as i64, 0)
                 .unwrap_or_default();
             naive.format("%Y-%m-%d %H:%M:%S").to_string()
         })
