@@ -1,10 +1,12 @@
 use std::fs::{self, File};
 use std::io::{self, Read, Write, BufReader, BufWriter, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use crate::models::{FileEntry, FileInfo};
-use crate::utils::{format_size, format_time};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use std::io::BufRead;
+
+use crate::models::{FileEntry, FileInfo};
+use crate::utils::{format_size, format_time};
+
 
 pub struct Compressor {
     input_path: String,
