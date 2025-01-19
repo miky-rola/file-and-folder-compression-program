@@ -19,7 +19,6 @@ A command-line utility written in Rust that provides file compression and decomp
 2. Clone the repository:
 ```bash
 git clone https://github.com/miky-rola/file-and-folder-compression-program
-cd rust-file-compressor
 ```
 
 3. Build the project:
