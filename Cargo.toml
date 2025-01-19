@@ -7,3 +7,4 @@ description = "A file and folder program"
 
 [dependencies]
 chrono = "0.4"
+base64 = "0.21"
