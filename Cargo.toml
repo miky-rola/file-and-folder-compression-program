@@ -2,7 +2,7 @@
 name = "file-and-folder-compressor-program"
 version = "0.1.0"
 edition = "2021"
-authors = ["miky rola mikyrola8@gmail.com"]
+authors = ["miky rola  mikyrola8@gmail.com"]
 description = "A file and folder program"
 
 [dependencies]
