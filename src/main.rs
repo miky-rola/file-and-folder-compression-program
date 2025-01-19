@@ -78,11 +78,11 @@ impl Compressor {
                         name,
                         path: path.clone(),
                         size: if metadata.is_file() { metadata.len() } else { 0 },
-                        last_modified: Self::format_time(metadata.modified()?),
+                        last_modified: Compressor::format_time(metadata.modified()?),
                         is_dir: metadata.is_dir(),
                     });
                 }
-
+                    
                 if path.is_dir() {
                     search_dir(&path, search_name, matches)?;
                 }
@@ -418,40 +418,41 @@ fn run_shell() -> io::Result<()> {
             }
             "compress" => {
                 if args.len() != 2 {
-                    println!("Usage: compress <path>");
+                    println!("Usage: compress <filename/foldername>");
                     continue;
                 }
                 
-                // Get and display files
-                let files = match Compressor::get_files_info(args[1]) {
+                // Search for files/folders matching the name
+                let matches = match Compressor::find_files(args[1]) {
                     Ok(files) => files,
                     Err(e) => {
-                        println!("Error reading directory: {}", e);
+                        println!("Error searching for files: {}", e);
                         continue;
                     }
                 };
 
-                if files.is_empty() {
-                    println!("No files found in the specified path.");
+                if matches.is_empty() {
+                    println!("No files or folders found matching '{}'", args[1]);
                     continue;
                 }
 
-                Compressor::display_files(&files);
+                println!("\nFound {} matches:", matches.len());
+                Compressor::display_files(&matches);
 
                 // Get user selection
-                println!("\nEnter the number of the file/folder to compress (1-{}):", files.len());
+                println!("\nEnter the number of the file/folder to compress (1-{}):", matches.len());
                 let mut selection = String::new();
                 io::stdin().read_line(&mut selection)?;
                 
                 let index = match selection.trim().parse::<usize>() {
-                    Ok(n) if n > 0 && n <= files.len() => n - 1,
+                    Ok(n) if n > 0 && n <= matches.len() => n - 1,
                     _ => {
                         println!("Invalid selection.");
                         continue;
                     }
                 };
 
-                let selected = &files[index];
+                let selected = &matches[index];
                 
                 // Generate output filename
                 let default_output = format!("{}.compressed", selected.name);
@@ -485,9 +486,43 @@ fn run_shell() -> io::Result<()> {
             }
             "decompress" => {
                 if args.len() != 2 {
-                    println!("Usage: decompress <archive_path>");
+                    println!("Usage: decompress <archive_name>");
                     continue;
                 }
+
+                // Search for compressed files matching the name
+                let matches = match Compressor::find_files(args[1]) {
+                    Ok(files) => files.into_iter()
+                        .filter(|f| f.name.ends_with(".compressed"))
+                        .collect::<Vec<_>>(),
+                    Err(e) => {
+                        println!("Error searching for archives: {}", e);
+                        continue;
+                    }
+                };
+
+                if matches.is_empty() {
+                    println!("No compressed archives found matching '{}'", args[1]);
+                    continue;
+                }
+
+                println!("\nFound {} compressed archives:", matches.len());
+                Compressor::display_files(&matches);
+
+                // Get user selection
+                println!("\nEnter the number of the archive to decompress (1-{}):", matches.len());
+                let mut selection = String::new();
+                io::stdin().read_line(&mut selection)?;
+                
+                let index = match selection.trim().parse::<usize>() {
+                    Ok(n) if n > 0 && n <= matches.len() => n - 1,
+                    _ => {
+                        println!("Invalid selection.");
+                        continue;
+                    }
+                };
+
+                let selected = &matches[index];
 
                 println!("Enter extraction directory (press Enter for current directory):");
                 let mut extract_dir = String::new();
@@ -496,7 +531,7 @@ fn run_shell() -> io::Result<()> {
                 let output_dir = if extract_dir.is_empty() { "." } else { extract_dir };
 
                 println!("Starting decompression...");
-                let compressor = Compressor::new(args[1].to_string(), output_dir.to_string());
+                let compressor = Compressor::new(selected.path.to_string_lossy().to_string(), output_dir.to_string());
                 match compressor.decompress() {
                     Ok(_) => println!("Decompression completed successfully!"),
                     Err(e) => println!("Error during decompression: {}", e),
