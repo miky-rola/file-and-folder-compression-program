@@ -209,10 +209,9 @@ impl Compressor {
 
     fn compress(&self) -> io::Result<()> {
         match Self::handle_existing_file(&self.output_path) {
-            Ok(true) => {}, // Replace existing file
-            Ok(false) => {}, // New file
+            Ok(true) => {},
+            Ok(false) => {}, 
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
-                // Create new file with different name
                 let new_path = e.to_string();
                 return Compressor::new(self.input_path.clone(), new_path).compress();
             }
@@ -223,16 +222,14 @@ impl Compressor {
         let output_file = File::create(&self.output_path)?;
         let mut writer = BufWriter::new(output_file);
 
-        // Collect all files to compress
         let files = Self::collect_files(input_path)?;
         
-        // Write number of files
         writer.write_all(&(files.len() as u64).to_le_bytes())?;
         
         // Calculate header size - convert all values to u64 first
         let header_pos = (files.len() as u64) * 
-            ((std::mem::size_of::<u64>() as u64 * 2) + // size and offset
-             (std::mem::size_of::<u32>() as u64)); // path length
+            ((std::mem::size_of::<u64>() as u64 * 2) +
+             (std::mem::size_of::<u32>() as u64)); 
         let mut current_offset = header_pos;
         
         let mut file_entries = Vec::new();
@@ -261,7 +258,7 @@ impl Compressor {
             current_offset += compressed_size;
         }
 
-        writer.seek(SeekFrom::Start(8))?; // Skip file count
+        writer.seek(SeekFrom::Start(8))?; 
         for entry in file_entries {
             // Write path
             let path_bytes = entry.path.as_bytes();
@@ -281,20 +278,16 @@ impl Compressor {
         let input_file = File::open(&self.input_path)?;
         let mut reader = BufReader::new(input_file);
         
-        // Read number of files
         let mut count_buffer = [0; 8];
         reader.read_exact(&mut count_buffer)?;
         let num_files = u64::from_le_bytes(count_buffer);
         
-        // Read file entries
         let mut files = Vec::new();
         for _ in 0..num_files {
-            // Read path length
             let mut len_buffer = [0; 4];
             reader.read_exact(&mut len_buffer)?;
             let path_len = u32::from_le_bytes(len_buffer) as usize;
             
-            // Read path
             let mut path_buffer = vec![0; path_len];
             reader.read_exact(&mut path_buffer)?;
             let path = String::from_utf8(path_buffer).unwrap();
@@ -328,7 +321,6 @@ impl Compressor {
             let output_file = File::create(output_path)?;
             let mut writer = BufWriter::new(output_file);
 
-            // Seek to file data
             reader.seek(SeekFrom::Start(file_entry.offset))?;
             
             let mut bytes_read = 0;
@@ -421,7 +413,6 @@ fn run_shell() -> io::Result<()> {
                     continue;
                 }
                 
-                // Search for files/folders matching the name
                 let matches = match Compressor::find_files(args[1]) {
                     Ok(files) => files,
                     Err(e) => {
@@ -438,7 +429,6 @@ fn run_shell() -> io::Result<()> {
                 println!("\nFound {} matches:", matches.len());
                 Compressor::display_files(&matches);
 
-                // Get user selection
                 println!("\nEnter the number of the file/folder to compress (1-{}):", matches.len());
                 let mut selection = String::new();
                 io::stdin().read_line(&mut selection)?;
@@ -453,7 +443,6 @@ fn run_shell() -> io::Result<()> {
 
                 let selected = &matches[index];
                 
-                // Generate output filename
                 let default_output = format!("{}.compressed", selected.name);
                 println!("\nChoose output option:");
                 println!("1. Save as {}", default_output);
@@ -508,7 +497,6 @@ fn run_shell() -> io::Result<()> {
                 println!("\nFound {} compressed archives:", matches.len());
                 Compressor::display_files(&matches);
 
-                // Get user selection
                 println!("\nEnter the number of the archive to decompress (1-{}):", matches.len());
                 let mut selection = String::new();
                 io::stdin().read_line(&mut selection)?;
