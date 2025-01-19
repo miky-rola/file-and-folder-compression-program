@@ -155,7 +155,6 @@ impl Compressor {
         Ok(())
     }
 
-
     fn collect_files(dir: &Path) -> io::Result<Vec<PathBuf>> {
         let mut files = Vec::new();
         if dir.is_file() {
