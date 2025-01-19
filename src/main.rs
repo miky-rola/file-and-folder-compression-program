@@ -151,7 +151,6 @@ impl Compressor {
             }
         }
 
-        // Write the last run if any
         if let Some(byte) = current_byte {
             writer.write_all(&[byte])?;
             writer.write_all(&count.to_le_bytes())?;
