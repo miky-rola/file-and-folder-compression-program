@@ -59,7 +59,41 @@ impl Compressor {
             })
             .unwrap_or_else(|_| String::from("Unknown"))
     }
+    fn find_files(search_name: &str) -> io::Result<Vec<FileInfo>> {
+        let mut matches = Vec::new();
+        
+        // Search in current directory and subdirectories
+        fn search_dir(dir: &Path, search_name: &str, matches: &mut Vec<FileInfo>) -> io::Result<()> {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                let name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string();
 
+                if name.to_lowercase().contains(&search_name.to_lowercase()) {
+                    let metadata = entry.metadata()?;
+                    matches.push(FileInfo {
+                        name,
+                        path: path.clone(),
+                        size: if metadata.is_file() { metadata.len() } else { 0 },
+                        last_modified: Self::format_time(metadata.modified()?),
+                        is_dir: metadata.is_dir(),
+                    });
+                }
+
+                if path.is_dir() {
+                    search_dir(&path, search_name, matches)?;
+                }
+            }
+            Ok(())
+        }
+
+        // Start search from current directory
+        search_dir(Path::new("."), search_name, &mut matches)?;
+        Ok(matches)
+    }
     fn get_files_info(path: &str) -> io::Result<Vec<FileInfo>> {
         let path = Path::new(path);
         let mut files = Vec::new();
