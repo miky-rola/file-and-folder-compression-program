@@ -102,4 +102,4 @@ Compressed archives have the following structure:
 
 ## Author
 
-miky rola
+miky rola   mikyrola8@gmail.com
