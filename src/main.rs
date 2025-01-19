@@ -7,5 +7,5 @@ use std::io;
 
 
 fn main() -> io::Result<()> {
-    // run_shell()
+    shell::run_shell()
 }
