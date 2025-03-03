@@ -1,4 +1,4 @@
-# Rust File Compressor
+# Rola File Compressor
 
 A command-line utility written in Rust that provides file compression and decompression functionality using run-length encoding (RLE).
 
